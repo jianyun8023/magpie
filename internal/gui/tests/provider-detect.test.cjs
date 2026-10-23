@@ -103,7 +103,7 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       assert.equal(sent.id, "relay");
       assert.equal(sent.base, ROOT + "/v1", "the URL typed");
       assert.equal(sent.model, "m-mixed");
-      assert.equal(sent.chat, "", "the URL typed is asked as each API takes it");
+      assert.equal(sent.chat, ROOT + "/v1", "the configured chat URL is kept");
       const shown = await ed.locator(".detect-out .ep").evaluateAll((es) => es.map((e) => [e.dataset.api, e.querySelector(".res").className, e.querySelector("code").textContent]));
       assert.deepEqual(shown, [["chat", "res bad", ROOT + "/v1"], ["responses", "res bad", ROOT + "/v1"], ["anthropic", "res ok", ROOT]]);
       assert.equal(await ed.locator('.detect-out .ep[data-api="anthropic"] .res').textContent(), L.ms);

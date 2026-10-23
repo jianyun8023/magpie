@@ -10730,13 +10730,12 @@ function detectAPIs(p, base, use) {
     out.hidden = false;
     out.replaceChildren(el("span", "hint", t("Asking each API…")));
     try {
-      // the URL typed is asked as each API takes it, not as the field
-      // holding it would send it; URLs given under More endpoints as they are.
+      // Keep each API's current URL, including the active tab and shared
+      // addresses. Only an API without a URL falls back to the base.
       // The form as it stands is asked and nothing is saved: a saved
       // provider's key (or the copied one's) stands for a key not typed.
       const body = { ...asTyped(), id: p?.id, base: typedBase, ...extra };
       if (!p && draft.copyOf) Object.assign(body, { new: true, copyOf: draft.copyOf });
-      for (const k of ["chat", "responses", "anthropic", "gemini"]) if (body[k] === typedBase) body[k] = "";
       const r = await api("provider/detect", body);
       out.replaceChildren();
       return r;

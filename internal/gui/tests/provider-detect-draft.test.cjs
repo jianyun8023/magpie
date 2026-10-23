@@ -24,8 +24,9 @@ const ctx = {};
 vm.runInNewContext(fs.readFileSync(path.join(assets, "i18n.js"), "utf8") + "\nthis.I18N = I18N;", ctx);
 const tr = (lang, s) => (lang === "en" ? s : ctx.I18N[lang][s] || assert.fail(`${lang} has no "${s}"`));
 
-function serve(lang, posts, answer) {
+function serve(lang, posts, answer, saved) {
   const providers = { providers: [{ id: "anthropic", name: "Anthropic", icon: "anthropic", preset: "anthropic", models: [], agents: [], key: { set: true, masked: "sk-…ab12" } }], presets: [], excluded: [], gateway: { running: true, window: true } };
+  if (saved) providers.providers = [saved];
   return async (route) => {
     const url = new URL(route.request().url());
     const json = (data, status = 200) => route.fulfill({ json: data, status });
@@ -134,7 +135,7 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
         await out.locator('.ep[data-api="chat"] .res.ok').waitFor();
         let sent = detects().at(-1).body;
         assert.equal(sent.key, "sk-typed", "the key typed");
-        assert.equal(sent.chat, "", "the URL typed is sent as base");
+        assert.equal(sent.chat, URL_, "the configured chat URL is kept");
         assert.equal(sent.base, URL_);
         assert.equal(sent.model, "");
         assert.deepEqual(sent.picked, ["m-a", "m-b"], "the models typed are the ones tried");
@@ -169,6 +170,65 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
         assert.deepEqual(border, [], "no left-border accent");
         assert(await page.evaluate(() => document.scrollingElement.scrollWidth <= innerWidth), "no sideways scroll");
         assert.deepEqual(errors, []);
+      });
+    }
+  }
+}
+
+// #3170: every explicitly configured endpoint survives detection, including
+// the active tab and APIs sharing its address. Changes are tested before Save.
+for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium", "webkit"])) {
+  for (const lang of ["en", "zh", "zh-TW", "ja", "de"]) {
+    for (const existing of [false, true]) {
+      test(`${engine} ${lang}: current endpoints, ${existing ? "saved" : "new"} provider`, async (t) => {
+        const browser = await (engine === "webkit" ? webkit.launch() : chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || "chromium" }));
+        t.after(() => browser.close());
+        const page = await browser.newPage();
+        page.setDefaultTimeout(5000);
+        const posts = [];
+        const saved = existing ? {
+          id: "relay", name: "Relay", icon: "generic", ready: true,
+          chat: "https://old.example/chat/v1", responses: "https://old.example/responses/v1",
+          anthropic: "https://old.example/anthropic", gemini: "https://old.example/gemini/v1beta",
+          models: [{ id: "m-a", name: "m-a", on: true }], agents: [], fallback: [], headers: {},
+          key: { set: true, masked: "sk-…1234" }, keyList: [],
+        } : undefined;
+        await page.route("**/*", serve(lang, posts, (body, json) => json({ results: [], models: [] }), saved));
+        await page.goto("http://magpie.test/?view=providers");
+        if (existing) await page.locator(".row.provider").click();
+        else {
+          await page.locator("#addProvider").click();
+          await page.locator("#addSheet .custom-foot .custom").click();
+          await page.locator(".add-models .detect-row input").fill("m-a");
+        }
+        const ed = page.locator(".editor");
+        const expected = {
+          chat: "https://chat.example/custom/v1", responses: "https://responses.example/custom/v1",
+          anthropic: "https://anthropic.example/custom", gemini: "https://gemini.example/custom/v1beta",
+        };
+        const tabs = { chat: "openai", responses: "responses", anthropic: "anthropic", gemini: "gemini" };
+        for (const [proto, tab] of Object.entries(tabs)) {
+          await ed.locator(`.base-apis [data-api="${tab}"]`).click();
+          await ed.locator(".base-url").fill(expected[proto]);
+        }
+        for (const shared of [false, true]) {
+          if (shared) {
+            expected.responses = expected.chat;
+            await ed.locator('.base-apis [data-api="responses"]').click();
+            await ed.locator(".base-url").fill(expected.responses);
+          }
+          for (const tab of Object.values(tabs)) {
+            await ed.locator(`.base-apis [data-api="${tab}"]`).click();
+            for (const label of ["Detect APIs", "Each picked model"]) {
+              const request = page.waitForRequest("**/api/provider/detect");
+              await ed.getByRole("button", { name: tr(lang, label), exact: true }).click();
+              const sent = (await request).postDataJSON();
+              for (const proto of Object.keys(expected)) assert.equal(sent[proto], expected[proto], `${label}: ${tab} selected, ${proto} endpoint`);
+              await ed.locator(".detect-row button.busy").waitFor({ state: "detached" });
+            }
+          }
+        }
+        assert(posts.every((p) => p.path === "/api/provider/detect"), "detection never saves the form");
       });
     }
   }
