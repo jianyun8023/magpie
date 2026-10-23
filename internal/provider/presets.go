@@ -156,11 +156,11 @@ var presets = []PresetDef{
 	// a Kimi Code membership's own endpoints (k3, kimi-for-coding …): Kimi
 	// lets members use them from third-party tools, keyed at its console
 	{ID: "kimi-code", Name: "Kimi Code", Icon: "kimi", Kind: KindVendor, Catalog: "kimi-code-plan-global",
-		Chat: "https://api.kimi.ai/coding/v1", Anthropic: "https://api.kimi.ai/coding",
+		Chat: "https://api.kimi.ai/coding/v1", Responses: "https://api.kimi.ai/coding/v1", Anthropic: "https://api.kimi.ai/coding",
 		Note:    "Membership",
 		Website: "https://www.kimi.com/code", KeysURL: "https://www.kimi.com/code/console"},
 	{ID: "kimi-code-cn", Name: "Kimi Code (China)", Icon: "kimi", Kind: KindVendor, Catalog: "kimi-code-plan-cn",
-		Chat: "https://api.kimi.com/coding/v1", Anthropic: "https://api.kimi.com/coding",
+		Chat: "https://api.kimi.com/coding/v1", Responses: "https://api.kimi.com/coding/v1", Anthropic: "https://api.kimi.com/coding",
 		Note:    "Membership",
 		Website: "https://www.kimi.com/code", KeysURL: "https://www.kimi.com/code/console"},
 	{ID: "zhipu", Name: "Zhipu GLM", Icon: "zhipu-color", Kind: KindVendor, Catalog: "zhipuai",
